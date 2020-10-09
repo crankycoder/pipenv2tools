@@ -63,10 +63,12 @@ def transform_source_file(
             lines.append("\n# dev-packages\n")
 
         for pkg, constraint in pg.items():
-            if constraint == "*":
+            if isinstance(constraint, dict):
+                lines.append(f"git+{constraint['git']}#egg={constraint['ref']}\n")
+                continue
+            elif constraint == "*":
                 constraint = ""
             lines.append(f"{pkg}{constraint}\n")
-
             deps.add(pkg.casefold())
 
     mode = "w" if force_overwrite else "x"
@@ -112,9 +114,15 @@ def transform_lock_file(
     for pg in package_groups:
         for pkg, info in pg.items():
             pl = []
-            pl.append(f"{pkg}{info['version']}")
-            for hash_ in info["hashes"]:
-                pl.append(f"    --hash={hash_}")
+            if "version" in info:
+                pl.append(f"{pkg}{info['version']}")
+            else:
+                git_rev = f"-e git+{info['git']}#egg={info['ref']}"
+                pl.append(git_rev)
+                pass
+            if "hashes" in info:
+                for hash_ in info["hashes"]:
+                    pl.append(f"    --hash={hash_}")
 
             if direct_deps and pkg.casefold() not in direct_deps:
                 # this could probably directly append to lines and skip the '\\\n'
